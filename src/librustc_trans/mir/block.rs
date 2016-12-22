@@ -132,6 +132,10 @@ impl<'bcx, 'tcx> MirContext<'bcx, 'tcx> {
                 funclet_br(self, bcx, target);
             }
 
+            mir::TerminatorKind::Yield { target } => {
+                bug!("undesugared Yield in trans: {:?}", data);
+            }
+
             mir::TerminatorKind::If { ref cond, targets: (true_bb, false_bb) } => {
                 let cond = self.trans_operand(&bcx, cond);
 

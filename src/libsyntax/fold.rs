@@ -1196,8 +1196,9 @@ pub fn noop_fold_expr<T: Folder>(Expr {id, node, span, attrs}: Expr, folder: &mu
                 ExprKind::Match(folder.fold_expr(expr),
                           arms.move_map(|x| folder.fold_arm(x)))
             }
-            ExprKind::Closure(capture_clause, decl, body, span) => {
-                ExprKind::Closure(capture_clause,
+            ExprKind::Closure(closure_kind, capture_clause, decl, body, span) => {
+                ExprKind::Closure(closure_kind,
+                                  capture_clause,
                                   folder.fold_fn_decl(decl),
                                   folder.fold_expr(body),
                                   folder.new_span(span))
@@ -1248,6 +1249,7 @@ pub fn noop_fold_expr<T: Folder>(Expr {id, node, span, attrs}: Expr, folder: &mu
                        folder.fold_ident(label.node)))
             ),
             ExprKind::Ret(e) => ExprKind::Ret(e.map(|x| folder.fold_expr(x))),
+            ExprKind::Yield(e) => ExprKind::Yield(e.map(|x| folder.fold_expr(x))),
             ExprKind::InlineAsm(asm) => ExprKind::InlineAsm(asm.map(|asm| {
                 InlineAsm {
                     inputs: asm.inputs.move_map(|(c, input)| {

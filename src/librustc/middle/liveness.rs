@@ -503,7 +503,8 @@ fn visit_expr<'a, 'tcx>(ir: &mut IrMaps<'a, 'tcx>, expr: &'tcx Expr) {
       hir::ExprBlock(..) | hir::ExprAssign(..) | hir::ExprAssignOp(..) |
       hir::ExprStruct(..) | hir::ExprRepeat(..) |
       hir::ExprInlineAsm(..) | hir::ExprBox(..) |
-      hir::ExprType(..) | hir::ExprPath(hir::QPath::TypeRelative(..)) => {
+      hir::ExprType(..) | hir::ExprPath(hir::QPath::TypeRelative(..)) |
+      hir::ExprYield(..) => {
           intravisit::walk_expr(ir, expr);
       }
     }
@@ -1034,6 +1035,10 @@ impl<'a, 'tcx> Liveness<'a, 'tcx> {
             self.propagate_through_opt_expr(o_e.as_ref().map(|e| &**e), exit_ln)
           }
 
+          hir::ExprYield(ref o_e) => {
+            self.propagate_through_opt_expr(o_e.as_ref().map(|e| &**e), succ)
+          }
+
           hir::ExprBreak(opt_label, ref opt_expr) => {
               // Find which label this break jumps to
               let sc = self.find_loop_scope(opt_label, expr.span);
@@ -1431,7 +1436,8 @@ fn check_expr<'a, 'tcx>(this: &mut Liveness<'a, 'tcx>, expr: &'tcx Expr) {
       hir::ExprBlock(..) | hir::ExprAddrOf(..) |
       hir::ExprStruct(..) | hir::ExprRepeat(..) |
       hir::ExprClosure(..) | hir::ExprPath(_) |
-      hir::ExprBox(..) | hir::ExprType(..) => {
+      hir::ExprBox(..) | hir::ExprType(..) |
+      hir::ExprYield(..) => {
         intravisit::walk_expr(this, expr);
       }
     }

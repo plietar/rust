@@ -507,7 +507,7 @@ impl<'a, 'gcx, 'tcx> MemCategorizationContext<'a, 'gcx, 'tcx> {
           hir::ExprBlock(..) | hir::ExprLoop(..) | hir::ExprMatch(..) |
           hir::ExprLit(..) | hir::ExprBreak(..) |
           hir::ExprAgain(..) | hir::ExprStruct(..) | hir::ExprRepeat(..) |
-          hir::ExprInlineAsm(..) | hir::ExprBox(..) => {
+          hir::ExprInlineAsm(..) | hir::ExprBox(..) | hir::ExprYield(..) => {
             Ok(self.cat_rvalue_node(expr.id(), expr.span(), expr_ty))
           }
         }

@@ -117,6 +117,26 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                 this.exit_scope(expr_span, extent, block, return_block);
                 this.cfg.start_new_block().unit()
             }
+            ExprKind::Yield { value } => {
+                block = match value {
+                    Some(value) => {
+                        unpack!(this.into(&Lvalue::Local(RETURN_POINTER), block, value))
+                    }
+                    None => {
+                        this.cfg.push_assign_unit(block,
+                                                  source_info,
+                                                  &Lvalue::Local(RETURN_POINTER));
+                        block
+                    }
+                };
+
+                let resume_block = this.cfg.start_new_block();
+
+                this.cfg.terminate(block, source_info,
+                                   TerminatorKind::Yield { target: resume_block });
+
+                resume_block.unit()
+            }
             _ => {
                 let expr_ty = expr.ty;
                 let temp = this.temp(expr.ty.clone());

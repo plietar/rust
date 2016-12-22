@@ -453,6 +453,11 @@ pub enum TerminatorKind<'tcx> {
         target: BasicBlock,
     },
 
+    /// block should have one successor in the graph; we jump there
+    Yield {
+        target: BasicBlock,
+    },
+
     /// jump to branch 0 if this lvalue evaluates to true
     If {
         cond: Operand<'tcx>,
@@ -550,6 +555,7 @@ impl<'tcx> TerminatorKind<'tcx> {
         use self::TerminatorKind::*;
         match *self {
             Goto { target: ref b } => slice::ref_slice(b).into_cow(),
+            Yield { target: ref b } => slice::ref_slice(b).into_cow(),
             If { targets: (b1, b2), .. } => vec![b1, b2].into_cow(),
             Switch { targets: ref b, .. } => b[..].into_cow(),
             SwitchInt { targets: ref b, .. } => b[..].into_cow(),
@@ -580,6 +586,7 @@ impl<'tcx> TerminatorKind<'tcx> {
         use self::TerminatorKind::*;
         match *self {
             Goto { target: ref mut b } => vec![b],
+            Yield { target: ref mut b } => vec![b],
             If { targets: (ref mut b1, ref mut b2), .. } => vec![b1, b2],
             Switch { targets: ref mut b, .. } => b.iter_mut().collect(),
             SwitchInt { targets: ref mut b, .. } => b.iter_mut().collect(),
@@ -659,6 +666,7 @@ impl<'tcx> TerminatorKind<'tcx> {
         use self::TerminatorKind::*;
         match *self {
             Goto { .. } => write!(fmt, "goto"),
+            Yield { .. } => write!(fmt, "yield"),
             If { cond: ref lv, .. } => write!(fmt, "if({:?})", lv),
             Switch { discr: ref lv, .. } => write!(fmt, "switch({:?})", lv),
             SwitchInt { discr: ref lv, .. } => write!(fmt, "switchInt({:?})", lv),
@@ -710,6 +718,7 @@ impl<'tcx> TerminatorKind<'tcx> {
         match *self {
             Return | Resume | Unreachable => vec![],
             Goto { .. } => vec!["".into()],
+            Yield { .. } => vec!["".into()],
             If { .. } => vec!["true".into(), "false".into()],
             Switch { ref adt_def, .. } => {
                 adt_def.variants

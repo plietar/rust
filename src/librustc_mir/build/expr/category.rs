@@ -86,6 +86,7 @@ impl Category {
             ExprKind::Block { .. } |
             ExprKind::Break { .. } |
             ExprKind::Continue { .. } |
+            ExprKind::Yield { .. } |
             ExprKind::Return { .. } =>
                 // FIXME(#27840) these probably want their own
                 // category, like "nonterminating"

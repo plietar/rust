@@ -2123,7 +2123,8 @@ impl<'a> State<'a> {
                 }
                 try!(self.bclose_(expr.span, INDENT_UNIT));
             }
-            ast::ExprKind::Closure(capture_clause, ref decl, ref body, _) => {
+            ast::ExprKind::Closure(closure_kind, capture_clause, ref decl, ref body, _) => {
+                try!(self.print_closure_kind(closure_kind));
                 try!(self.print_capture_clause(capture_clause));
 
                 try!(self.print_fn_block_args(&decl));
@@ -2213,6 +2214,16 @@ impl<'a> State<'a> {
             }
             ast::ExprKind::Ret(ref result) => {
                 try!(word(&mut self.s, "return"));
+                match *result {
+                    Some(ref expr) => {
+                        try!(word(&mut self.s, " "));
+                        try!(self.print_expr(&expr));
+                    }
+                    _ => ()
+                }
+            }
+            ast::ExprKind::Yield(ref result) => {
+                try!(word(&mut self.s, "yield"));
                 match *result {
                     Some(ref expr) => {
                         try!(word(&mut self.s, " "));
@@ -2697,6 +2708,14 @@ impl<'a> State<'a> {
                 self.maybe_print_comment(ty.span.lo)
             }
             ast::FunctionRetTy::Default(..) => unreachable!(),
+        }
+    }
+
+    pub fn print_closure_kind(&mut self, closure_kind: ast::ClosureKind)
+                                -> io::Result<()> {
+        match closure_kind {
+            ast::ClosureKind::Coroutine => self.word_space("proc"),
+            ast::ClosureKind::Normal => Ok(()),
         }
     }
 

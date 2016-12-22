@@ -1002,6 +1002,9 @@ pub fn walk_expr<'v, V: Visitor<'v>>(visitor: &mut V, expression: &'v Expr) {
             visitor.visit_def_mention(Def::Label(label.loop_id));
             visitor.visit_name(label.span, label.name);
         }
+        ExprYield(ref optional_expression) => {
+            walk_list!(visitor, visit_expr, optional_expression);
+        }
         ExprRet(ref optional_expression) => {
             walk_list!(visitor, visit_expr, optional_expression);
         }

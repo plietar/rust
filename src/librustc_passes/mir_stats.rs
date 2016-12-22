@@ -148,6 +148,7 @@ impl<'a, 'tcx> mir_visit::Visitor<'tcx> for StatCollector<'a, 'tcx> {
         self.record("TerminatorKind", kind);
         self.record(match *kind {
             TerminatorKind::Goto { .. } => "TerminatorKind::Goto",
+            TerminatorKind::Yield { .. } => "TerminatorKind::Yield",
             TerminatorKind::If { .. } => "TerminatorKind::If",
             TerminatorKind::Switch { .. } => "TerminatorKind::Switch",
             TerminatorKind::SwitchInt { .. } => "TerminatorKind::SwitchInt",

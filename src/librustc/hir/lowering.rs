@@ -1389,7 +1389,7 @@ impl<'a> LoweringContext<'a> {
                                    arms.iter().map(|x| self.lower_arm(x)).collect(),
                                    hir::MatchSource::Normal)
                 }
-                ExprKind::Closure(capture_clause, ref decl, ref body, fn_decl_span) => {
+                ExprKind::Closure(_, capture_clause, ref decl, ref body, fn_decl_span) => {
                     self.with_parent_def(e.id, |this| {
                         let expr = this.lower_expr(body);
                         hir::ExprClosure(this.lower_capture_clause(capture_clause),
@@ -1479,6 +1479,8 @@ impl<'a> LoweringContext<'a> {
                 }
                 ExprKind::Continue(opt_ident) => hir::ExprAgain(self.lower_label(e.id, opt_ident)),
                 ExprKind::Ret(ref e) => hir::ExprRet(e.as_ref().map(|x| P(self.lower_expr(x)))),
+
+                ExprKind::Yield(ref e) => hir::ExprYield(e.as_ref().map(|x| P(self.lower_expr(x)))),
                 ExprKind::InlineAsm(ref asm) => {
                     let hir_asm = hir::InlineAsm {
                         inputs: asm.inputs.iter().map(|&(ref c, _)| c.clone()).collect(),

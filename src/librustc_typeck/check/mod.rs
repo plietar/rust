@@ -3730,6 +3730,28 @@ impl<'a, 'gcx, 'tcx> FnCtxt<'a, 'gcx, 'tcx> {
             }
             tcx.types.never
           }
+          hir::ExprYield(ref expr_opt) => {
+            if self.ret_ty.is_none() {
+                struct_span_err!(self.tcx.sess, expr.span, E0572,
+                                 "yield statement outside of function body").emit();
+            } else if let Some(ref e) = *expr_opt {
+                self.check_expr_coercable_to_type(&e, self.ret_ty.unwrap());
+            } else {
+                match self.eq_types(false,
+                                    &self.misc(expr.span),
+                                    self.ret_ty.unwrap(),
+                                    tcx.mk_nil()) {
+                    Ok(ok) => self.register_infer_ok_obligations(ok),
+                    Err(_) => {
+                        struct_span_err!(tcx.sess, expr.span, E0069,
+                                         "`yield;` in a function whose return type is not `()`")
+                            .span_label(expr.span, &format!("return type is not ()"))
+                            .emit();
+                    }
+                }
+            }
+            tcx.mk_nil()
+          }
           hir::ExprAssign(ref lhs, ref rhs) => {
             let lhs_ty = self.check_expr_with_lvalue_pref(&lhs, PreferMutLvalue);
 

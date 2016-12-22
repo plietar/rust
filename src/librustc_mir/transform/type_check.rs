@@ -403,6 +403,7 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
         let tcx = self.tcx();
         match term.kind {
             TerminatorKind::Goto { .. } |
+            TerminatorKind::Yield { .. } |
             TerminatorKind::Resume |
             TerminatorKind::Return |
             TerminatorKind::Unreachable |
@@ -600,7 +601,8 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
         let is_cleanup = block.is_cleanup;
         self.last_span = block.terminator().source_info.span;
         match block.terminator().kind {
-            TerminatorKind::Goto { target } =>
+            TerminatorKind::Goto { target } |
+            TerminatorKind::Yield { target } =>
                 self.assert_iscleanup(mir, block, target, is_cleanup),
             TerminatorKind::If { targets: (on_true, on_false), .. } => {
                 self.assert_iscleanup(mir, block, on_true, is_cleanup);

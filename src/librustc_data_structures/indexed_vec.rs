@@ -92,8 +92,15 @@ impl<I: Idx, T> IndexVec<I, T> {
 
     #[inline]
     pub fn push(&mut self, d: T) -> I {
+        self.push_with(move |_| d)
+    }
+
+    #[inline]
+    pub fn push_with<F>(&mut self, f: F) -> I
+        where F: FnOnce(I) -> T
+    {
         let idx = I::new(self.len());
-        self.raw.push(d);
+        self.raw.push(f(idx));
         idx
     }
 

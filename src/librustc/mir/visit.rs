@@ -359,7 +359,7 @@ macro_rules! make_mir_visitor {
                                      kind: & $($mutability)* TerminatorKind<'tcx>,
                                      source_location: Location) {
                 match *kind {
-                    TerminatorKind::Goto { target } => {
+                    TerminatorKind::Goto { target } | TerminatorKind::Yield { target } => {
                         self.visit_branch(block, target);
                     }
 

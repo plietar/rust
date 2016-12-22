@@ -512,7 +512,9 @@ impl<'a, 'gcx, 'tcx> ExprUseVisitor<'a, 'gcx, 'tcx> {
                 self.walk_block(&blk);
             }
 
-            hir::ExprBreak(_, ref opt_expr) | hir::ExprRet(ref opt_expr) => {
+            hir::ExprBreak(_, ref opt_expr) |
+            hir::ExprRet(ref opt_expr) |
+            hir::ExprYield(ref opt_expr) => {
                 if let Some(ref expr) = *opt_expr {
                     self.consume_expr(&expr);
                 }

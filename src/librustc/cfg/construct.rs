@@ -280,6 +280,10 @@ impl<'a, 'tcx> CFGBuilder<'a, 'tcx> {
                 self.add_unreachable_node()
             }
 
+            hir::ExprYield(ref e) => {
+                self.straightline(expr, pred, e.iter().map(|e| &**e))
+            }
+
             hir::ExprBreak(label, ref opt_expr) => {
                 let v = self.opt_expr(opt_expr, pred);
                 let loop_scope = self.find_scope(expr, label);

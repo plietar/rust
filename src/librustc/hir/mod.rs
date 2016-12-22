@@ -966,6 +966,8 @@ pub enum Expr_ {
     /// A `return`, with an optional value to be returned
     ExprRet(Option<P<Expr>>),
 
+    ExprYield(Option<P<Expr>>),
+
     /// Inline assembly (from `asm!`), with its outputs and inputs.
     ExprInlineAsm(P<InlineAsm>, HirVec<Expr>, HirVec<Expr>),
 

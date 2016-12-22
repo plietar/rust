@@ -449,6 +449,7 @@ impl<'a, 'tcx: 'a, D> DataflowAnalysis<'a, 'tcx, D>
             mir::TerminatorKind::Resume |
             mir::TerminatorKind::Unreachable => {}
             mir::TerminatorKind::Goto { ref target } |
+            mir::TerminatorKind::Yield { ref target } |
             mir::TerminatorKind::Assert { ref target, cleanup: None, .. } |
             mir::TerminatorKind::Drop { ref target, location: _, unwind: None } |
             mir::TerminatorKind::DropAndReplace {

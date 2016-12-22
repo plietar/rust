@@ -382,6 +382,7 @@ impl<'a, 'tcx> Qualifier<'a, 'tcx, 'tcx> {
 
             let target = match mir[bb].terminator().kind {
                 TerminatorKind::Goto { target } |
+                TerminatorKind::Yield { target } |
                 // Drops are considered noops.
                 TerminatorKind::Drop { target, .. } |
                 TerminatorKind::Assert { target, .. } |

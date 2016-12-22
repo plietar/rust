@@ -1419,7 +1419,7 @@ impl<'l, 'tcx: 'l, 'll, D: Dump +'ll> Visitor<'l> for DumpVisitor<'l, 'tcx, 'll,
                                    ty),
                 }
             }
-            ast::ExprKind::Closure(_, ref decl, ref body, _fn_decl_span) => {
+            ast::ExprKind::Closure(_, _, ref decl, ref body, _fn_decl_span) => {
                 let mut id = String::from("$");
                 id.push_str(&ex.id.to_string());
                 self.process_formals(&decl.inputs, &id);

@@ -209,6 +209,7 @@ pub fn cleanup_kinds<'bcx,'tcx>(_bcx: Block<'bcx,'tcx>,
         for (bb, data) in mir.basic_blocks().iter_enumerated() {
             match data.terminator().kind {
                 TerminatorKind::Goto { .. } |
+                TerminatorKind::Yield { .. } |
                 TerminatorKind::Resume |
                 TerminatorKind::Return |
                 TerminatorKind::Unreachable |

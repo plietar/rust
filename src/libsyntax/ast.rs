@@ -969,7 +969,8 @@ pub enum ExprKind {
     /// A closure (for example, `move |a, b, c| a + b + c`)
     ///
     /// The final span is the span of the argument block `|...|`
-    Closure(CaptureBy, P<FnDecl>, P<Expr>, Span),
+    Closure(ClosureKind, CaptureBy, P<FnDecl>, P<Expr>, Span),
+
     /// A block (`{ ... }`)
     Block(P<Block>),
 
@@ -1005,6 +1006,8 @@ pub enum ExprKind {
     Continue(Option<SpannedIdent>),
     /// A `return`, with an optional value to be returned
     Ret(Option<P<Expr>>),
+
+    Yield(Option<P<Expr>>),
 
     /// Output of the `asm!()` macro
     InlineAsm(P<InlineAsm>),
@@ -1056,6 +1059,12 @@ pub struct QSelf {
 pub enum CaptureBy {
     Value,
     Ref,
+}
+
+#[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Debug, Copy)]
+pub enum ClosureKind {
+    Normal,
+    Coroutine,
 }
 
 pub type Mac = Spanned<Mac_>;

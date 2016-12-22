@@ -15,7 +15,7 @@ use ast::Unsafety;
 use ast::{Mod, Arg, Arm, Attribute, BindingMode, TraitItemKind};
 use ast::Block;
 use ast::{BlockCheckMode, CaptureBy};
-use ast::{Constness, Crate};
+use ast::{Constness, ClosureKind, Crate};
 use ast::Defaultness;
 use ast::EnumDef;
 use ast::{Expr, ExprKind, RangeLimits};
@@ -2136,7 +2136,7 @@ impl<'a> Parser<'a> {
             },
             token::BinOp(token::Or) |  token::OrOr => {
                 let lo = self.span.lo;
-                return self.parse_lambda_expr(lo, CaptureBy::Ref, attrs);
+                return self.parse_lambda_expr(lo, ClosureKind::Normal, CaptureBy::Ref, attrs);
             },
             token::OpenDelim(token::Bracket) => {
                 self.bump();
@@ -2184,7 +2184,16 @@ impl<'a> Parser<'a> {
                 }
                 if self.eat_keyword(keywords::Move) {
                     let lo = self.prev_span.lo;
-                    return self.parse_lambda_expr(lo, CaptureBy::Value, attrs);
+                    return self.parse_lambda_expr(lo, ClosureKind::Normal, CaptureBy::Value, attrs);
+                }
+                if self.eat_keyword(keywords::Proc) {
+                    let lo = self.prev_span.lo;
+                    let capture = if self.eat_keyword(keywords::Move) {
+                        CaptureBy::Value
+                    } else {
+                        CaptureBy::Ref
+                    };
+                    return self.parse_lambda_expr(lo, ClosureKind::Coroutine, capture, attrs);
                 }
                 if self.eat_keyword(keywords::If) {
                     return self.parse_if_expr(attrs);
@@ -2248,6 +2257,14 @@ impl<'a> Parser<'a> {
                         ex = ExprKind::Ret(Some(e));
                     } else {
                         ex = ExprKind::Ret(None);
+                    }
+                } else if self.eat_keyword(keywords::Yield) {
+                    if self.token.can_begin_expr() {
+                        let e = self.parse_expr()?;
+                        hi = e.span.hi;
+                        ex = ExprKind::Yield(Some(e));
+                    } else {
+                        ex = ExprKind::Yield(None);
                     }
                 } else if self.eat_keyword(keywords::Break) {
                     let lt = if self.token.is_lifetime() {
@@ -3146,6 +3163,7 @@ impl<'a> Parser<'a> {
     // `move |args| expr`
     pub fn parse_lambda_expr(&mut self,
                              lo: BytePos,
+                             closure_kind: ClosureKind,
                              capture_clause: CaptureBy,
                              attrs: ThinVec<Attribute>)
                              -> PResult<'a, P<Expr>>
@@ -3165,7 +3183,7 @@ impl<'a> Parser<'a> {
         Ok(self.mk_expr(
             lo,
             body.span.hi,
-            ExprKind::Closure(capture_clause, decl, body, mk_sp(lo, decl_hi)),
+            ExprKind::Closure(closure_kind, capture_clause, decl, body, mk_sp(lo, decl_hi)),
             attrs))
     }
 
