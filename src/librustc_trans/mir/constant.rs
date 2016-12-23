@@ -326,6 +326,9 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
                             mir::AssertMessage::Math(ref err) => {
                                 ErrKind::Math(err.clone())
                             }
+                            mir::AssertMessage::CoroutineError => {
+                                ErrKind::MiscCatchAll
+                            }
                         };
 
                         let err = ConstEvalErr{ span: span, kind: err };

@@ -627,14 +627,14 @@ impl<'b, 'tcx> ElaborateDropsCtxt<'b, 'tcx> {
         let subpath = super::move_path_children_matching(
             self.move_data(), c.path, |proj| match proj {
                 &Projection {
-                    elem: ProjectionElem::Downcast(_, idx), ..
+                    elem: ProjectionElem::Downcast(idx), ..
                 } => idx == variant_index,
                 _ => false
             });
 
         if let Some(variant_path) = subpath {
             let base_lv = c.lvalue.clone().elem(
-                ProjectionElem::Downcast(adt, variant_index)
+                ProjectionElem::Downcast(variant_index)
             );
             let fields = self.move_paths_for_fields(
                 &base_lv,
@@ -683,10 +683,11 @@ impl<'b, 'tcx> ElaborateDropsCtxt<'b, 'tcx> {
                 // discriminant after it is free-ed, because that
                 // way lies only trouble.
 
+                let values = adt.variants.iter().map(|v| v.disr_val).collect();
                 let switch_block = self.new_block(
                     c, c.is_cleanup, TerminatorKind::Switch {
                         discr: c.lvalue.clone(),
-                        adt_def: adt,
+                        values: values,
                         targets: variant_drops
                     });
 

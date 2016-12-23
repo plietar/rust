@@ -194,9 +194,11 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                 }).collect();
                 debug!("num_enum_variants: {}, num tested variants: {}, variants: {:?}",
                        num_enum_variants, variants.iter().count(), variants);
+
+                let values = adt_def.variants.iter().map(|v| v.disr_val).collect();
                 self.cfg.terminate(block, source_info, TerminatorKind::Switch {
                     discr: lvalue.clone(),
-                    adt_def: adt_def,
+                    values: values,
                     targets: target_blocks.clone()
                 });
                 target_blocks
@@ -625,7 +627,7 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
         // So, if we have a match-pattern like `x @ Enum::Variant(P1, P2)`,
         // we want to create a set of derived match-patterns like
         // `(x as Variant).0 @ P1` and `(x as Variant).1 @ P1`.
-        let elem = ProjectionElem::Downcast(adt_def, variant_index);
+        let elem = ProjectionElem::Downcast(variant_index);
         let downcast_lvalue = match_pair.lvalue.clone().elem(elem); // `(x as Variant)`
         let consequent_match_pairs =
             subpatterns.iter()

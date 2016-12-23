@@ -372,8 +372,7 @@ macro_rules! make_mir_visitor {
                     }
 
                     TerminatorKind::Switch { ref $($mutability)* discr,
-                                             adt_def: _,
-                                             ref targets } => {
+                                             ref targets, .. } => {
                         self.visit_lvalue(discr, LvalueContext::Inspect, source_location);
                         for &target in targets {
                             self.visit_branch(block, target);
@@ -457,6 +456,7 @@ macro_rules! make_mir_visitor {
                         self.visit_operand(index, location);
                     }
                     AssertMessage::Math(_) => {}
+                    AssertMessage::CoroutineError => {}
                 }
             }
 
@@ -613,7 +613,7 @@ macro_rules! make_mir_visitor {
                                                     min_length: _,
                                                     from_end: _ } => {
                     }
-                    ProjectionElem::Downcast(_adt_def, _variant_index) => {
+                    ProjectionElem::Downcast(_variant_index) => {
                     }
                 }
             }

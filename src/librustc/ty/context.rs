@@ -235,6 +235,8 @@ pub struct Tables<'tcx> {
     /// expression defining the closure.
     pub closure_kinds: DefIdMap<ty::ClosureKind>,
 
+    pub coroutine_variants: DefIdMap<Vec<Vec<Ty<'tcx>>>>,
+
     /// For each fn, records the "liberated" types of its arguments
     /// and return type. Liberated means that all bound regions
     /// (including late-bound regions) are replaced with free
@@ -260,6 +262,7 @@ impl<'a, 'gcx, 'tcx> Tables<'tcx> {
             upvar_capture_map: FxHashMap(),
             closure_tys: DefIdMap(),
             closure_kinds: DefIdMap(),
+            coroutine_variants: DefIdMap(),
             liberated_fn_sigs: NodeMap(),
             fru_field_types: NodeMap()
         }

@@ -55,8 +55,8 @@ impl<'tcx> Lift for LvalueElem<'tcx> {
                     min_length: min_length,
                     from_end: from_end
                 },
-            ProjectionElem::Downcast(a, u) =>
-                ProjectionElem::Downcast(a.clone(), u.clone()),
+            ProjectionElem::Downcast(index) =>
+                ProjectionElem::Downcast(index),
         }
     }
 }

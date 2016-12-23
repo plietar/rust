@@ -25,9 +25,7 @@ pub enum LvalueTy<'tcx> {
     Ty { ty: Ty<'tcx> },
 
     /// Downcast to a particular variant of an enum.
-    Downcast { adt_def: &'tcx AdtDef,
-               substs: &'tcx Substs<'tcx>,
-               variant_index: usize },
+    Downcast { ty: Ty<'tcx>, variant_index: usize },
 }
 
 impl<'a, 'gcx, 'tcx> LvalueTy<'tcx> {
@@ -37,10 +35,8 @@ impl<'a, 'gcx, 'tcx> LvalueTy<'tcx> {
 
     pub fn to_ty(&self, tcx: TyCtxt<'a, 'gcx, 'tcx>) -> Ty<'tcx> {
         match *self {
-            LvalueTy::Ty { ty } =>
-                ty,
-            LvalueTy::Downcast { adt_def, substs, variant_index: _ } =>
-                tcx.mk_adt(adt_def, substs),
+            LvalueTy::Ty { ty } |
+            LvalueTy::Downcast { ty, .. } => ty,
         }
     }
 
@@ -78,20 +74,22 @@ impl<'a, 'gcx, 'tcx> LvalueTy<'tcx> {
                     }
                 }
             }
-            ProjectionElem::Downcast(adt_def1, index) =>
-                match self.to_ty(tcx).sty {
-                    ty::TyAdt(adt_def, substs) => {
+            ProjectionElem::Downcast(index) => {
+                let ty = self.to_ty(tcx);
+                match ty.sty {
+                    ty::TyAdt(adt_def, _) => {
                         assert!(adt_def.is_enum());
-                        assert!(index < adt_def.variants.len());
-                        assert_eq!(adt_def, adt_def1);
-                        LvalueTy::Downcast { adt_def: adt_def,
-                                             substs: substs,
-                                             variant_index: index }
+                        LvalueTy::Downcast { variant_index: index, ty: ty }
+                    }
+                    ty::TyClosure(..) => {
+                        // TODO: check closure is a coroutine
+                        LvalueTy::Downcast { variant_index: index, ty: ty }
                     }
                     _ => {
                         bug!("cannot downcast non-ADT type: `{:?}`", self)
                     }
-                },
+                }
+            }
             ProjectionElem::Field(_, fty) => LvalueTy::Ty { ty: fty }
         }
     }
@@ -101,10 +99,9 @@ impl<'tcx> TypeFoldable<'tcx> for LvalueTy<'tcx> {
     fn super_fold_with<'gcx: 'tcx, F: TypeFolder<'gcx, 'tcx>>(&self, folder: &mut F) -> Self {
         match *self {
             LvalueTy::Ty { ty } => LvalueTy::Ty { ty: ty.fold_with(folder) },
-            LvalueTy::Downcast { adt_def, substs, variant_index } => {
+            LvalueTy::Downcast { ty, variant_index } => {
                 LvalueTy::Downcast {
-                    adt_def: adt_def,
-                    substs: substs.fold_with(folder),
+                    ty: ty.fold_with(folder),
                     variant_index: variant_index
                 }
             }
@@ -114,7 +111,7 @@ impl<'tcx> TypeFoldable<'tcx> for LvalueTy<'tcx> {
     fn super_visit_with<V: TypeVisitor<'tcx>>(&self, visitor: &mut V) -> bool {
         match *self {
             LvalueTy::Ty { ty } => ty.visit_with(visitor),
-            LvalueTy::Downcast { substs, .. } => substs.visit_with(visitor)
+            LvalueTy::Downcast { ty, .. } => ty.visit_with(visitor)
         }
     }
 }

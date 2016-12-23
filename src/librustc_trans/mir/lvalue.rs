@@ -137,7 +137,7 @@ impl<'bcx, 'tcx> MirContext<'bcx, 'tcx> {
                         let base_ty = tr_base.ty.to_ty(tcx);
                         let discr = match tr_base.ty {
                             LvalueTy::Ty { .. } => 0,
-                            LvalueTy::Downcast { adt_def: _, substs: _, variant_index: v } => v,
+                            LvalueTy::Downcast { variant_index: v, .. } => v,
                         };
                         let discr = discr as u64;
                         let is_sized = common::type_is_sized(tcx, projected_ty.to_ty(tcx));

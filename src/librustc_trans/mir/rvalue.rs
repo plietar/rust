@@ -132,8 +132,24 @@ impl<'bcx, 'tcx> MirContext<'bcx, 'tcx> {
                             }
                         }
                     },
-                    _ => {
-                        // If this is a tuple or closure, we need to translate GEP indices.
+                    mir::AggregateKind::Closure(..) => {
+                        bcx.with_block(|bcx| {
+                            adt::trans_set_discr(bcx, dest.ty.to_ty(bcx.tcx()), dest.llval, Disr::from(0));
+                        });
+                        for (i, operand) in operands.iter().enumerate() {
+                            let op = self.trans_operand(&bcx, operand);
+                            // Do not generate stores and GEPis for zero-sized fields.
+                            if !common::type_is_zero_size(bcx.ccx(), op.ty) {
+                                let val = adt::MaybeSizedValue::sized(dest.llval);
+                                let lldest_i = adt::trans_field_ptr_builder(&bcx,
+                                    dest.ty.to_ty(bcx.tcx()),
+                                    val, Disr::from(0), i);
+                                self.store_operand(&bcx, lldest_i, op);
+                            }
+                        }
+                    },
+                    mir::AggregateKind::Array | mir::AggregateKind::Tuple => {
+                        // If this is a tuple, we need to translate GEP indices.
                         let layout = bcx.ccx().layout_of(dest.ty.to_ty(bcx.tcx()));
                         let translation = if let Layout::Univariant { ref variant, .. } = *layout {
                             Some(&variant.memory_index)

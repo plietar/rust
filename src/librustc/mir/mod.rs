@@ -18,7 +18,7 @@ use rustc_data_structures::control_flow_graph::ControlFlowGraph;
 use hir::def::CtorKind;
 use hir::def_id::DefId;
 use ty::subst::Substs;
-use ty::{self, AdtDef, ClosureSubsts, Region, Ty};
+use ty::{self, AdtDef, ClosureSubsts, Disr, Region, Ty};
 use util::ppaux;
 use rustc_back::slice;
 use hir::InlineAsm;
@@ -467,7 +467,7 @@ pub enum TerminatorKind<'tcx> {
     /// lvalue evaluates to some enum; jump depending on the branch
     Switch {
         discr: Lvalue<'tcx>,
-        adt_def: &'tcx AdtDef,
+        values: Vec<Disr>,
         targets: Vec<BasicBlock>,
     },
 
@@ -705,6 +705,9 @@ impl<'tcx> TerminatorKind<'tcx> {
                     AssertMessage::Math(ref err) => {
                         write!(fmt, "{:?}", err.description())?;
                     }
+                    AssertMessage::CoroutineError => {
+                        write!(fmt, "coroutine is in invalid state")?;
+                    }
                 }
 
                 write!(fmt, ")")
@@ -720,11 +723,10 @@ impl<'tcx> TerminatorKind<'tcx> {
             Goto { .. } => vec!["".into()],
             Yield { .. } => vec!["".into()],
             If { .. } => vec!["true".into(), "false".into()],
-            Switch { ref adt_def, .. } => {
-                adt_def.variants
-                       .iter()
-                       .map(|variant| variant.name.to_string().into())
-                       .collect()
+            Switch { ref values, .. } => {
+                values.iter()
+                      .map(|val| val.to_string().into())
+                      .collect()
             }
             SwitchInt { ref values, .. } => {
                 values.iter()
@@ -760,7 +762,8 @@ pub enum AssertMessage<'tcx> {
         len: Operand<'tcx>,
         index: Operand<'tcx>
     },
-    Math(ConstMathErr)
+    Math(ConstMathErr),
+    CoroutineError,
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -875,7 +878,7 @@ pub enum ProjectionElem<'tcx, V> {
     /// "Downcast" to a variant of an ADT. Currently, we only introduce
     /// this for ADTs with more than one variant. It may be better to
     /// just introduce it always, or always for enums.
-    Downcast(&'tcx AdtDef, usize),
+    Downcast(usize),
 }
 
 /// Alias for projections as they appear in lvalues, where the base is an lvalue
@@ -919,8 +922,9 @@ impl<'tcx> Debug for Lvalue<'tcx> {
                 write!(fmt, "{}", ty::tls::with(|tcx| tcx.item_path_str(def_id))),
             Projection(ref data) =>
                 match data.elem {
-                    ProjectionElem::Downcast(ref adt_def, index) =>
-                        write!(fmt, "({:?} as {})", data.base, adt_def.variants[index].name),
+                    // TODO: pretty print the variant name when known
+                    ProjectionElem::Downcast(index) =>
+                        write!(fmt, "({:?} as {})", data.base, index),
                     ProjectionElem::Deref =>
                         write!(fmt, "(*{:?})", data.base),
                     ProjectionElem::Field(field, ty) =>

@@ -16,6 +16,7 @@ use infer::InferCtxt;
 use session::Session;
 use traits;
 use ty::{self, Ty, TyCtxt, TypeFoldable};
+use ty::subst::Subst;
 
 use syntax::ast::{FloatTy, IntTy, UintTy};
 use syntax::attr;
@@ -540,6 +541,9 @@ enum StructKind {
     MaybeUnsizedUnivariant,
     // A univariant, but part of an enum.
     EnumVariant,
+    Coroutine {
+        prefix_len: usize,
+    }
 }
 
 impl<'a, 'gcx, 'tcx> Struct {
@@ -578,7 +582,7 @@ impl<'a, 'gcx, 'tcx> Struct {
         let (optimize, sort_ascending) = match kind {
             StructKind::AlwaysSizedUnivariant => (can_optimize, false),
             StructKind::MaybeUnsizedUnivariant => (can_optimize, false),
-            StructKind::EnumVariant => {
+            StructKind::EnumVariant | StructKind::Coroutine {..} => {
                 assert!(fields.len() >= 1, "Enum variants must have discriminants.");
                 (can_optimize && fields[0].size(dl).bytes() == 1, true)
             }
@@ -588,12 +592,13 @@ impl<'a, 'gcx, 'tcx> Struct {
         let mut inverse_memory_index: Vec<u32> = (0..fields.len() as u32).collect();
 
         if optimize {
-            let start = if let StructKind::EnumVariant = kind { 1 } else { 0 };
-            let end = if let StructKind::MaybeUnsizedUnivariant = kind {
-                fields.len() - 1
-            } else {
-                fields.len()
+            let (start, end) = match kind {
+                StructKind::AlwaysSizedUnivariant => (0, fields.len()),
+                StructKind::MaybeUnsizedUnivariant => (0, fields.len() - 1),
+                StructKind::EnumVariant => (1, fields.len()),
+                StructKind::Coroutine { prefix_len } => (prefix_len + 1, fields.len()),
             };
+
             if end > start {
                 let optimizing  = &mut inverse_memory_index[start..end];
                 if sort_ascending {
@@ -614,9 +619,13 @@ impl<'a, 'gcx, 'tcx> Struct {
         // field 5 with offset 0 puts 0 in offsets[5].
         // At the bottom of this function, we use inverse_memory_index to produce memory_index.
 
-        if let StructKind::EnumVariant = kind {
-            assert_eq!(inverse_memory_index[0], 0,
-              "Enum variant discriminants must have the lowest offset.");
+        match kind {
+            StructKind::EnumVariant |
+            StructKind::Coroutine {..} => {
+                assert_eq!(inverse_memory_index[0], 0,
+                  "Enum variant discriminants must have the lowest offset.");
+            }
+            _ => ()
         }
 
         let mut offset = Size::from_bytes(0);
@@ -972,7 +981,7 @@ pub enum Layout {
         discrfield: FieldPath,
         // Like discrfield, but in source order. For debuginfo.
         discrfield_source: FieldPath
-    }
+    },
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1116,13 +1125,55 @@ impl<'a, 'gcx, 'tcx> Layout {
 
             // Tuples and closures.
             ty::TyClosure(def_id, ref substs) => {
-                let tys = substs.upvar_tys(def_id, tcx);
-                let st = Struct::new(dl,
-                    &tys.map(|ty| ty.layout(infcx))
-                      .collect::<Result<Vec<_>, _>>()?,
-                    &[],
-                    StructKind::AlwaysSizedUnivariant, ty)?;
-                Univariant { variant: st, non_zero: false }
+                let variants = &tcx.tables().coroutine_variants[&def_id];
+
+                if variants.len() == 0 {
+                    let upvars = substs.upvar_tys(def_id, tcx);
+                    let fields = upvars.map(|field| {
+                        field.layout(infcx)
+                    }).collect::<Result<Vec<_>, _>>()?;
+
+                    let variant = Struct::new(dl, &fields, &[], StructKind::AlwaysSizedUnivariant, ty)?;
+                    Univariant { variant: variant, non_zero: false }
+                } else {
+                    let discr_max = (variants.len() - 1) as i64;
+
+                    let (discr_ity, _) = Integer::repr_discr(tcx, ty, &[], 0, discr_max);
+                    let discr = Scalar { value: Int(discr_ity), non_zero: false };
+
+                    let mut align = dl.aggregate_align;
+                    let mut size = Size::from_bytes(0);
+
+                    let upvars_count = substs.upvar_tys(def_id, tcx).count(); 
+                    let variants = variants.subst(tcx, substs.substs).into_iter().map(|variant| {
+                        let upvars = substs.upvar_tys(def_id, tcx);
+                        let variant = variant.into_iter();
+
+                        let mut fields = upvars.chain(variant).map(|field| {
+                            field.layout(infcx)
+                        }).collect::<Result<Vec<_>, _>>()?;
+                        fields.insert(0, &discr);
+
+                        let st = Struct::new(dl, &fields, &[], StructKind::Coroutine { prefix_len: upvars_count }, ty)?;
+
+                        size = cmp::max(size, st.min_size);
+                        align = align.max(st.align);
+                        Ok(st)
+                    }).collect::<Result<Vec<_>, _>>()?;
+
+                    size = size.abi_align(align);
+
+                    if size.bytes() >= dl.obj_size_bound() {
+                        return Err(LayoutError::SizeOverflow(ty));
+                    }
+
+                    General {
+                        discr: discr_ity,
+                        variants: variants,
+                        size: size,
+                        align: align
+                    }
+                }
             }
 
             ty::TyTuple(tys) => {

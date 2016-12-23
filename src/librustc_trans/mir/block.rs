@@ -132,7 +132,7 @@ impl<'bcx, 'tcx> MirContext<'bcx, 'tcx> {
                 funclet_br(self, bcx, target);
             }
 
-            mir::TerminatorKind::Yield { target } => {
+            mir::TerminatorKind::Yield { .. } => {
                 bug!("undesugared Yield in trans: {:?}", data);
             }
 
@@ -144,7 +144,7 @@ impl<'bcx, 'tcx> MirContext<'bcx, 'tcx> {
                 bcx.cond_br(cond.immediate(), lltrue, llfalse);
             }
 
-            mir::TerminatorKind::Switch { ref discr, ref adt_def, ref targets } => {
+            mir::TerminatorKind::Switch { ref discr, ref values, ref targets } => {
                 let discr_lvalue = self.trans_lvalue(&bcx, discr);
                 let ty = discr_lvalue.ty.to_ty(bcx.tcx());
                 let discr = bcx.with_block(|bcx|
@@ -169,12 +169,11 @@ impl<'bcx, 'tcx> MirContext<'bcx, 'tcx> {
                     _ => (None, self.unreachable_block().llbb)
                 };
                 let switch = bcx.switch(discr, default_blk, targets.len());
-                assert_eq!(adt_def.variants.len(), targets.len());
-                for (adt_variant, &target) in adt_def.variants.iter().zip(targets) {
+                assert_eq!(values.len(), targets.len());
+                for (&disr_val, &target) in values.iter().zip(targets) {
                     if default_bb != Some(target) {
                         let llbb = llblock(self, target);
-                        let llval = bcx.with_block(|bcx| adt::trans_case(
-                                bcx, ty, Disr::from(adt_variant.disr_val)));
+                        let llval = bcx.with_block(|bcx| adt::trans_case(bcx, ty, Disr::from(disr_val)));
                         build::AddCase(switch, llval, llbb)
                     }
                 }
@@ -371,6 +370,21 @@ impl<'bcx, 'tcx> MirContext<'bcx, 'tcx> {
                         (lang_items::PanicFnLangItem,
                          vec![msg_file_line],
                          Some(ErrKind::Math(err.clone())))
+                    }
+                    mir::AssertMessage::CoroutineError => {
+                        let msg_str = Symbol::intern("coroutine error").as_str();
+                        let msg_str = C_str_slice(bcx.ccx(), msg_str);
+                        let msg_file_line = C_struct(bcx.ccx(),
+                                                     &[msg_str, filename, line],
+                                                     false);
+                        let align = llalign_of_min(bcx.ccx(), common::val_ty(msg_file_line));
+                        let msg_file_line = consts::addr_of(bcx.ccx(),
+                                                            msg_file_line,
+                                                            align,
+                                                            "panic_loc");
+                        (lang_items::PanicFnLangItem,
+                         vec![msg_file_line],
+                         Some(ErrKind::MiscCatchAll))
                     }
                 };
 

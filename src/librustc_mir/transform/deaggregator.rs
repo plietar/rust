@@ -64,7 +64,7 @@ impl<'tcx> MirPass<'tcx> for Deaggregator {
                     let lhs_cast = if adt_def.variants.len() > 1 {
                         Lvalue::Projection(Box::new(LvalueProjection {
                             base: lhs.clone(),
-                            elem: ProjectionElem::Downcast(adt_def, variant),
+                            elem: ProjectionElem::Downcast(variant),
                         }))
                     } else {
                         lhs.clone()

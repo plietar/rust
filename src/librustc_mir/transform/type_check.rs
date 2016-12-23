@@ -206,9 +206,9 @@ impl<'a, 'b, 'gcx, 'tcx> TypeVerifier<'a, 'b, 'gcx, 'tcx> {
                     }
                 }
             }
-            ProjectionElem::Downcast(adt_def1, index) =>
+            ProjectionElem::Downcast(index) =>
                 match base_ty.sty {
-                    ty::TyAdt(adt_def, substs) if adt_def.is_enum() && adt_def == adt_def1 => {
+                    ty::TyAdt(adt_def, substs) if adt_def.is_enum() => {
                         if index >= adt_def.variants.len() {
                             LvalueTy::Ty {
                                 ty: span_mirbug_and_err!(
@@ -220,16 +220,22 @@ impl<'a, 'b, 'gcx, 'tcx> TypeVerifier<'a, 'b, 'gcx, 'tcx> {
                             }
                         } else {
                             LvalueTy::Downcast {
-                                adt_def: adt_def,
-                                substs: substs,
+                                ty: base_ty,
                                 variant_index: index
                             }
                         }
                     }
+                    ty::TyClosure(..) => {
+                        // TODO: check some stuff
+                        LvalueTy::Downcast {
+                            ty: base_ty,
+                            variant_index: index
+                        }
+                    }
                     _ => LvalueTy::Ty {
                         ty: span_mirbug_and_err!(
-                            self, lvalue, "can't downcast {:?} as {:?}",
-                            base_ty, adt_def1)
+                            self, lvalue, "can't downcast {:?}",
+                            base_ty)
                     }
                 },
             ProjectionElem::Field(field, fty) => {
@@ -267,9 +273,13 @@ impl<'a, 'b, 'gcx, 'tcx> TypeVerifier<'a, 'b, 'gcx, 'tcx> {
         let tcx = self.tcx();
 
         let (variant, substs) = match base_ty {
-            LvalueTy::Downcast { adt_def, substs, variant_index } => {
-                (&adt_def.variants[variant_index], substs)
-            }
+            LvalueTy::Downcast { ty, variant_index } => match ty.sty {
+                ty::TyAdt(adt_def, substs) => {
+                    (&adt_def.variants[variant_index], substs)
+                }
+                _ => return Ok(span_mirbug_and_err!(
+                    self, parent, "can't project out of {:?}", base_ty))
+            },
             LvalueTy::Ty { ty } => match ty.sty {
                 ty::TyAdt(adt_def, substs) if adt_def.is_univariant() => {
                         (&adt_def.variants[0], substs)
@@ -447,16 +457,16 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
                 }
                 // FIXME: check the values
             }
-            TerminatorKind::Switch { ref discr, adt_def, ref targets } => {
+            TerminatorKind::Switch { ref discr, ref values, ref targets } => {
                 let discr_ty = discr.ty(mir, tcx).to_ty(tcx);
                 match discr_ty.sty {
                     ty::TyAdt(def, _) if def.is_enum() &&
-                                         def == adt_def &&
-                                         adt_def.variants.len() == targets.len()
+                                         def.variants.len() == targets.len() &&
+                                         def.variants.len() == values.len()
                       => {},
+                    ty::TyClosure(..) => (),
                     _ => {
-                        span_mirbug!(self, term, "bad Switch ({:?} on {:?})",
-                                     adt_def, discr_ty);
+                        span_mirbug!(self, term, "bad Switch ({:?})", discr_ty);
                     }
                 }
             }

@@ -58,6 +58,7 @@ use monomorphize;
 use type_::Type;
 use type_of;
 use value::Value;
+use rustc::ty::subst::Subst;
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum BranchKind {
@@ -109,8 +110,18 @@ fn compute_fields<'a, 'tcx>(cx: &CrateContext<'a, 'tcx>, t: Ty<'tcx>,
         },
         ty::TyTuple(fields) => fields.to_vec(),
         ty::TyClosure(def_id, substs) => {
-            if variant_index > 0 { bug!("{} is a closure, which only has one variant", t);}
-            substs.upvar_tys(def_id, cx.tcx()).collect()
+            let variants = &cx.tcx().tables().coroutine_variants[&def_id];
+
+            if variants.len() > 0 {
+                let variant = variants[variant_index].iter()
+                    .map(|ty| cx.tcx().normalize_associated_type(&ty.subst(cx.tcx(), substs.substs)));
+
+                substs.upvar_tys(def_id, cx.tcx())
+                      .chain(variant)
+                      .collect()
+            } else {
+                substs.upvar_tys(def_id, cx.tcx()).collect()
+            }
         },
         _ => bug!("{} is not a type that can have fields.", t)
     }
@@ -333,11 +344,18 @@ pub fn is_discr_signed<'tcx>(l: &layout::Layout) -> bool {
 /// Obtain the actual discriminant of a value.
 pub fn trans_get_discr<'blk, 'tcx>(bcx: Block<'blk, 'tcx>, t: Ty<'tcx>,
                                    scrutinee: ValueRef, cast_to: Option<Type>,
-                                   range_assert: bool)
-    -> ValueRef {
-    let (def, substs) = match t.sty {
-        ty::TyAdt(ref def, substs) if def.adt_kind() == AdtKind::Enum => (def, substs),
-        _ => bug!("{} is not an enum", t)
+                                   range_assert: bool) -> ValueRef {
+    let (variant_count, substs) = match t.sty {
+        ty::TyAdt(ref def, substs) if def.adt_kind() == AdtKind::Enum => {
+            (def.variants.len(), substs)
+        }
+        ty::TyClosure(def_id, substs) => {
+            let tcx = bcx.ccx().tcx();
+            let variants = &tcx.tables().coroutine_variants[&def_id];
+
+            (variants.len(), substs.substs)
+        }
+        _ => bug!("{} is not an enum or coroutine", t)
     };
 
     debug!("trans_get_discr t: {:?}", t);
@@ -349,15 +367,24 @@ pub fn trans_get_discr<'blk, 'tcx>(bcx: Block<'blk, 'tcx>, t: Ty<'tcx>,
         }
         layout::General { discr, .. } => {
             let ptr = StructGEP(bcx, scrutinee, 0);
-            load_discr(bcx, discr, ptr, 0, def.variants.len() as u64 - 1,
+            load_discr(bcx, discr, ptr, 0, variant_count as u64 - 1,
                        range_assert)
         }
         layout::Univariant { .. } | layout::UntaggedUnion { .. } => C_u8(bcx.ccx(), 0),
         layout::RawNullablePointer { nndiscr, .. } => {
             let cmp = if nndiscr == 0 { IntEQ } else { IntNE };
+            let ptr_ty = match t.sty {
+                ty::TyAdt(ref def, substs) if def.adt_kind() == AdtKind::Enum => {
+                    &def.variants[nndiscr as usize].fields[0]
+                }
+                ty::TyClosure(def_id, substs) => {
+                    bug!("closure can only be represented by General");
+                }
+                _ => unreachable!(),
+            };
+
             let llptrty = type_of::sizing_type_of(bcx.ccx(),
-                monomorphize::field_ty(bcx.ccx().tcx(), substs,
-                &def.variants[nndiscr as usize].fields[0]));
+                monomorphize::field_ty(bcx.ccx().tcx(), substs, ptr_ty));
             ICmp(bcx, cmp, Load(bcx, scrutinee), C_null(llptrty), DebugLoc::None)
         }
         layout::StructWrappedNullablePointer { nndiscr, ref discrfield, .. } => {

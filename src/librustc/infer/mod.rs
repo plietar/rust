@@ -518,10 +518,9 @@ impl<'gcx> TransNormalize<'gcx> for LvalueTy<'gcx> {
     fn trans_normalize<'a, 'tcx>(&self, infcx: &InferCtxt<'a, 'gcx, 'tcx>) -> Self {
         match *self {
             LvalueTy::Ty { ty } => LvalueTy::Ty { ty: ty.trans_normalize(infcx) },
-            LvalueTy::Downcast { adt_def, substs, variant_index } => {
+            LvalueTy::Downcast { ty, variant_index } => {
                 LvalueTy::Downcast {
-                    adt_def: adt_def,
-                    substs: substs.trans_normalize(infcx),
+                    ty: ty.trans_normalize(infcx),
                     variant_index: variant_index
                 }
             }

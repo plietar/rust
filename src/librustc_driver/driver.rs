@@ -1012,7 +1012,6 @@ pub fn phase_4_translate_to_llvm<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
     time(time_passes, "MIR optimisations", || {
         let mut passes = ::rustc::mir::transform::Passes::new();
         passes.push_hook(box mir::transform::dump_mir::DumpMir);
-        passes.push_pass(box mir::transform::coroutine::CoroutineTransform);
 
         passes.push_pass(box mir::transform::no_landing_pads::NoLandingPads);
         passes.push_pass(box mir::transform::simplify::SimplifyCfg::new("no-landing-pads"));
@@ -1024,6 +1023,8 @@ pub fn phase_4_translate_to_llvm<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
         passes.push_pass(box borrowck::ElaborateDrops);
         passes.push_pass(box mir::transform::no_landing_pads::NoLandingPads);
         passes.push_pass(box mir::transform::simplify::SimplifyCfg::new("elaborate-drops"));
+
+        passes.push_pass(box mir::transform::coroutine::CoroutineTransform);
 
         // No lifetime analysis based on borrowing can be done from here on out.
         passes.push_pass(box mir::transform::instcombine::InstCombine::new());

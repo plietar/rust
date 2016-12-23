@@ -170,6 +170,7 @@ impl<'a, 'tcx> mir_visit::Visitor<'tcx> for StatCollector<'a, 'tcx> {
         self.record(match *msg {
             AssertMessage::BoundsCheck { .. } => "AssertMessage::BoundsCheck",
             AssertMessage::Math(..) => "AssertMessage::Math",
+            AssertMessage::CoroutineError => "AssertMessage::CoroutineError",
         }, msg);
         self.super_assert_message(msg, location);
     }
