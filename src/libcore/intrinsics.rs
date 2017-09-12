@@ -1378,6 +1378,18 @@ extern "rust-intrinsic" {
     /// ```
     #[cfg(not(stage0))]
     pub fn align_offset(ptr: *const (), align: usize) -> usize;
+
+    #[cfg(not(stage0))]
+    pub fn va_start(arglist: *const u8);
+
+    #[cfg(not(stage0))]
+    pub fn va_copy(destarglist: *const u8, srcarglist: *const u8);
+
+    #[cfg(not(stage0))]
+    pub fn va_end(arglist: *const u8);
+
+    #[cfg(not(stage0))]
+    pub fn va_arg<T: Copy>(va_list: *const u8) -> T;
 }
 
 #[cfg(stage0)]

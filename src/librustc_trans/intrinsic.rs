@@ -78,6 +78,9 @@ fn get_simple_intrinsic(ccx: &CrateContext, name: &str) -> Option<ValueRef> {
         "roundf64" => "llvm.round.f64",
         "assume" => "llvm.assume",
         "abort" => "llvm.trap",
+        "va_start" => "llvm.va_start",
+        "va_copy" => "llvm.va_copy",
+        "va_end" => "llvm.va_end",
         _ => return None
     };
     Some(ccx.get_intrinsic(&llvm_name))
@@ -395,6 +398,11 @@ pub fn trans_intrinsic_call<'a, 'tcx>(bcx: &Builder<'a, 'tcx>,
             // `if offset == 0 { 0 } else { offset - align }`
             bcx.select(is_zero, zero, bcx.sub(offset, llargs[1]))
         }
+
+        "va_arg" => {
+            bcx.va_arg(llargs[0], llret_ty)
+        }
+
         name if name.starts_with("simd_") => {
             generic_simd_intrinsic(bcx, name,
                                    callee_ty,

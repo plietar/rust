@@ -4739,7 +4739,7 @@ impl<'a> Parser<'a> {
                      abi: abi::Abi)
                      -> PResult<'a, ItemInfo> {
         let (ident, mut generics) = self.parse_fn_header()?;
-        let decl = self.parse_fn_decl(false)?;
+        let decl = self.parse_fn_decl(true)?;
         generics.where_clause = self.parse_where_clause()?;
         let (inner_attrs, body) = self.parse_inner_attrs_and_block()?;
         Ok((ident, ItemKind::Fn(decl, unsafety, constness, abi, generics, body), Some(inner_attrs)))

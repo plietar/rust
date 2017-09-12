@@ -889,6 +889,10 @@ fn declare_intrinsic(ccx: &CrateContext, key: &str) -> Option<ValueRef> {
     ifn!("llvm.assume", fn(i1) -> void);
     ifn!("llvm.prefetch", fn(i8p, t_i32, t_i32, t_i32) -> void);
 
+    ifn!("llvm.va_start", fn(i8p) -> void);
+    ifn!("llvm.va_copy", fn(i8p, i8p) -> void);
+    ifn!("llvm.va_end", fn(i8p) -> void);
+
     if ccx.sess().opts.debuginfo != NoDebugInfo {
         ifn!("llvm.dbg.declare", fn(Type::metadata(ccx), Type::metadata(ccx)) -> void);
         ifn!("llvm.dbg.value", fn(Type::metadata(ccx), t_i64, Type::metadata(ccx)) -> void);

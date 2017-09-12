@@ -318,6 +318,11 @@ pub fn check_intrinsic_type<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
                 (0, vec![ptr_ty, tcx.types.usize], tcx.types.usize)
             },
 
+            "va_start" => (0, vec![ tcx.mk_imm_ptr(tcx.types.u8) ], tcx.mk_nil()),
+            "va_end" => (0, vec![ tcx.mk_imm_ptr(tcx.types.u8) ], tcx.mk_nil()),
+            "va_copy" => (0, vec![ tcx.mk_imm_ptr(tcx.types.u8), tcx.mk_imm_ptr(tcx.types.u8) ], tcx.mk_nil()),
+            "va_arg" => (1, vec![tcx.mk_imm_ptr(tcx.types.u8)], param(0)),
+
             ref other => {
                 struct_span_err!(tcx.sess, it.span, E0093,
                                 "unrecognized intrinsic function: `{}`",
